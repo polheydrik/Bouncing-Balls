@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Bouncing Balls with Boundary Control and Size Options</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Adjustable parameters
+        const numberOfBalls = 10;
+        const minSpeed = 2;
+        const maxSpeed = 5;
+
+        // New variable to control ball sizes
+        const sizeOption = 'same'; // Set to 'same' for uniform sizes, 'different' for random sizes
+        const uniformSize = 30; // Set the uniform size when sizeOption is 'same'
+        const minSize = 15; // Minimum size when sizeOption is 'different'
+        const maxSize = 25; // Maximum size when sizeOption is 'different'
+
+        function createBall() {
+            let radius;
+            if (sizeOption === 'same') {
+                radius = uniformSize;
+            } else {
+                radius = minSize + Math.random() * (maxSize - minSize);
+            }
+            return {
+                x: radius + Math.random() * (canvas.width - 2 * radius),
+                y: radius + Math.random() * (canvas.height - 2 * radius),
+                radius: radius,
+                dx: getRandomSpeed(),
+                dy: getRandomSpeed(),
+                color: getRandomColor(),
+            };
+        }
+
+        function getRandomSpeed() {
+            return (minSpeed + Math.random() * (maxSpeed - minSpeed)) * (Math.random() < 0.5 ? -1 : 1);
+        }
+
+        let balls = Array(numberOfBalls).fill().map(() => createBall());
+
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        function drawBall(ball) {
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = ball.color;
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function randomizeBall(ball) {
+            ball.dx = getRandomSpeed();
+            ball.dy = getRandomSpeed();
+            ball.color = getRandomColor();
+        }
+
+        function drawVisualEffect(ball) {
+            ctx.fillStyle = getRandomColor();
+            ctx.fillRect(ball.x - ball.radius * 2, ball.y - ball.radius * 2, ball.radius * 4, ball.radius * 4);
+        }
+
+        function checkCollision(ball1, ball2) {
+            const dx = ball1.x - ball2.x;
+            const dy = ball1.y - ball2.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < ball1.radius + ball2.radius) {
+                // Collision detected, calculate new velocities
+                const angle = Math.atan2(dy, dx);
+                const sin = Math.sin(angle);
+                const cos = Math.cos(angle);
+
+                // Rotate ball velocities
+                const vx1 = ball1.dx * cos + ball1.dy * sin;
+                const vy1 = ball1.dy * cos - ball1.dx * sin;
+                const vx2 = ball2.dx * cos + ball2.dy * sin;
+                const vy2 = ball2.dy * cos - ball2.dx * sin;
+
+                // Swap ball velocities
+                ball1.dx = vx2 * cos - vy1 * sin;
+                ball1.dy = vy1 * cos + vx2 * sin;
+                ball2.dx = vx1 * cos - vy2 * sin;
+                ball2.dy = vy2 * cos + vx1 * sin;
+
+                // Move balls apart to prevent sticking
+                const overlap = ball1.radius + ball2.radius - distance;
+                ball1.x += Math.cos(angle) * overlap / 2;
+                ball1.y += Math.sin(angle) * overlap / 2;
+                ball2.x -= Math.cos(angle) * overlap / 2;
+                ball2.y -= Math.sin(angle) * overlap / 2;
+
+                // Randomize balls and draw visual effect
+                randomizeBall(ball1);
+                randomizeBall(ball2);
+                drawVisualEffect(ball1);
+                drawVisualEffect(ball2);
+            }
+        }
+
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < balls.length; i++) {
+                let ball = balls[i];
+                
+                // Update ball position
+                ball.x += ball.dx;
+                ball.y += ball.dy;
+
+                // Boundary checking
+                if (ball.x - ball.radius < 0) {
+                    ball.x = ball.radius;
+                    ball.dx = Math.abs(ball.dx);
+                    randomizeBall(ball);
+                    drawVisualEffect(ball);
+                } else if (ball.x + ball.radius > canvas.width) {
+                    ball.x = canvas.width - ball.radius;
+                    ball.dx = -Math.abs(ball.dx);
+                    randomizeBall(ball);
+                    drawVisualEffect(ball);
+                }
+
+                if (ball.y - ball.radius < 0) {
+                    ball.y = ball.radius;
+                    ball.dy = Math.abs(ball.dy);
+                    randomizeBall(ball);
+                    drawVisualEffect(ball);
+                } else if (ball.y + ball.radius > canvas.height) {
+                    ball.y = canvas.height - ball.radius;
+                    ball.dy = -Math.abs(ball.dy);
+                    randomizeBall(ball);
+                    drawVisualEffect(ball);
+                }
+
+                drawBall(ball);
+
+                // Check collision with other balls
+                for (let j = i + 1; j < balls.length; j++) {
+                    checkCollision(ball, balls[j]);
+                }
+            }
+
+            requestAnimationFrame(update);
+        }
+
+        update();
+
+        // Resize handling
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            balls = balls.map(ball => {
+                if (ball.x + ball.radius > canvas.width) ball.x = canvas.width - ball.radius;
+                if (ball.y + ball.radius > canvas.height) ball.y = canvas.height - ball.radius;
+                return ball;
+            });
+        });
+    </script>
+</body>
+</html>
